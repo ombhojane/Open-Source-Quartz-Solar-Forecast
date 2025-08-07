@@ -145,12 +145,183 @@
       "contributions": [
         "doc"
       ]
+    },
+    {
+      "login": "diegomarvid",
+      "name": "Diego Marvid",
+      "avatar_url": "https://avatars.githubusercontent.com/u/33181424?v=4",
+      "profile": "https://github.com/diegomarvid",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "froukje",
+      "name": "Frauke Albrecht",
+      "avatar_url": "https://avatars.githubusercontent.com/u/10419258?v=4",
+      "profile": "https://github.com/froukje",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Ludecan",
+      "name": "Pablo Alfaro",
+      "avatar_url": "https://avatars.githubusercontent.com/u/17169248?v=4",
+      "profile": "https://github.com/Ludecan",
+      "contributions": [
+        "review"
+      ]
+    },
+    {
+      "login": "KelRem",
+      "name": "KelRem",
+      "avatar_url": "https://avatars.githubusercontent.com/u/175075550?v=4",
+      "profile": "https://github.com/KelRem",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "sicunchen",
+      "name": "Lia Chen",
+      "avatar_url": "https://avatars.githubusercontent.com/u/14258987?v=4",
+      "profile": "https://github.com/sicunchen",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "Clemo97",
+      "name": "Clement Lumumba",
+      "avatar_url": "https://avatars.githubusercontent.com/u/43673340?v=4",
+      "profile": "https://clementlumumba.netlify.app/",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "aayushyatiwari",
+      "name": "aayush",
+      "avatar_url": "https://avatars.githubusercontent.com/u/169576527?v=4",
+      "profile": "https://github.com/aayushyatiwari",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "Brohan7524",
+      "name": "Rohan Singh",
+      "avatar_url": "https://avatars.githubusercontent.com/u/85754035?v=4",
+      "profile": "https://github.com/Brohan7524",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "sumana-2705",
+      "name": "Sumana Sree Angajala",
+      "avatar_url": "https://avatars.githubusercontent.com/u/110307215?v=4",
+      "profile": "https://github.com/sumana-2705",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "EmilyIsCoding",
+      "name": "Emily",
+      "avatar_url": "https://avatars.githubusercontent.com/u/98443131?v=4",
+      "profile": "https://github.com/EmilyIsCoding",
+      "contributions": [
+        "test"
+      ]
+    },
+    {
+      "login": "sergejlazuk",
+      "name": "sergejla",
+      "avatar_url": "https://avatars.githubusercontent.com/u/33606741?v=4",
+      "profile": "https://github.com/sergejlazuk",
+      "contributions": [
+        "question"
+      ]
+    },
+    {
+      "login": "JadeVexo",
+      "name": "Jaay",
+      "avatar_url": "https://avatars.githubusercontent.com/u/66781710?v=4",
+      "profile": "https://github.com/JadeVexo",
+      "contributions": [
+        "code"
+      ]
+    },
+    {
+      "login": "rachitex",
+      "name": "Rachit Mishra",
+      "avatar_url": "https://avatars.githubusercontent.com/u/18143615?v=4",
+      "profile": "http://rachitex.me",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "vashisthrahul13",
+      "name": "Rahul Vashisth",
+      "avatar_url": "https://avatars.githubusercontent.com/u/182660137?v=4",
+      "profile": "https://github.com/vashisthrahul13",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "LynnLawren",
+      "name": "Lynn Mary Lawrence",
+      "avatar_url": "https://avatars.githubusercontent.com/u/107563516?v=4",
+      "profile": "https://github.com/LynnLawren",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "j4ckieee",
+      "name": "Jackie Truong",
+      "avatar_url": "https://avatars.githubusercontent.com/u/146953876?v=4",
+      "profile": "https://github.com/j4ckieee",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "binaryecheos",
+      "name": "Gourav Sahu ",
+      "avatar_url": "https://avatars.githubusercontent.com/u/130131792?v=4",
+      "profile": "https://github.com/binaryecheos",
+      "contributions": [
+        "doc"
+      ]
+    },
+    {
+      "login": "hrsvrn",
+      "name": "Harshvardhan Vatsa",
+      "avatar_url": "https://avatars.githubusercontent.com/u/76729417?v=4",
+      "profile": "http://hrsvrn.com",
+      "contributions": [
+        "infra"
+      ]
+    },
+    {
+      "login": "Krishnadubey1008",
+      "name": "Krishna Dubey",
+      "avatar_url": "https://avatars.githubusercontent.com/u/121748506?v=4",
+      "profile": "https://github.com/Krishnadubey1008",
+      "contributions": [
+        "doc"
+      ]
     }
   ],
   "contributorsPerLine": 7,
   "skipCi": true,
   "repoType": "github",
   "repoHost": "https://github.com",
-  "projectName": "Open-Source-Quartz-Solar-Forecast",
+  "projectName": "open-source-quartz-solar-forecast",
   "projectOwner": "openclimatefix"
 }

@@ -1,25 +1,19 @@
 """ Function to get NWP data and create fake PV dataset"""
-import json
 import ssl
 from datetime import datetime
-import os  # Add import for os module
+from typing import Optional
 
 import numpy as np
+import openmeteo_requests
 import pandas as pd
-import requests
+import requests_cache
 import xarray as xr
+from retry_requests import retry
 
 from quartz_solar_forecast.pydantic_models import PVSite
-from quartz_solar_forecast.inverters.enphase import get_enphase_data # Added import for get_enphase_data from /inverters/enphase.py
 
 ssl._create_default_https_context = ssl._create_unverified_context
 
-# Load environment variables from .env file
-from dotenv import load_dotenv
-
-# Assigning secrets from the .env file
-ENPHASE_API_KEY = os.getenv('ENPHASE_API_KEY')
-ENPHASE_USER_ID = os.getenv('ENPHASE_USER_ID')
 
 def get_nwp(site: PVSite, ts: datetime, nwp_source: str = "icon") -> xr.Dataset:
     """
@@ -27,82 +21,102 @@ def get_nwp(site: PVSite, ts: datetime, nwp_source: str = "icon") -> xr.Dataset:
 
     :param site: the PV site
     :param ts: the timestamp for when you want the forecast for
-    :param nwp_source: the nwp data source. Either "gfs" or "icon". Defaults to "icon"
+    :param nwp_source: the nwp data source. Either "gfs", "icon" or "ukmo". Defaults to "icon"
     :return: nwp forecast in xarray
     """
+    now = datetime.now()
 
+    # Setup the Open-Meteo API client with cache and retry on error
+    cache_session = requests_cache.CachedSession('.cache', expire_after = -1)
+    retry_session = retry(cache_session, retries = 5, backoff_factor = 0.2)
+    openmeteo = openmeteo_requests.Client(session = retry_session)
+
+    # Define the variables we want. Visibility is handled separately after the main request
     variables = [
-        "visibility",
-        "windspeed_10m",
         "temperature_2m",
         "precipitation",
+        "cloud_cover_low",
+        "cloud_cover_mid",
+        "cloud_cover_high",
+        "wind_speed_10m",
         "shortwave_radiation",
-        "direct_radiation",
-        "cloudcover_low",
-        "cloudcover_mid",
-        "cloudcover_high",
+        "direct_radiation"
     ]
 
     start = ts.date()
     end = start + pd.Timedelta(days=7)
 
-    # Getting NWP, from OPEN METEO
-    url_nwp_source = None
-    if nwp_source == "icon":
-        url_nwp_source = "dwd-icon"
-    elif nwp_source == "gfs":
-        url_nwp_source = "gfs"
+    url = ""
+
+    # check whether the time stamp is more than 3 months in the past
+    if (now - ts).days > 90:
+        print("Warning: The requested timestamp is more than 3 months in the past. The weather data are provided by a reanalyse model and not ICON or GFS.")
+
+        # load data from open-meteo Historical Weather API
+        url = "https://archive-api.open-meteo.com/v1/archive"
+
     else:
-        raise Exception(f'Source ({nwp_source}) must be either "icon" or "gfs"')
+        # Getting NWP from open meteo weather forecast API by ICON, GFS, or UKMO within the last 3 months
+        url_nwp_source = {
+            "icon": "dwd-icon",
+            "gfs": "gfs",
+            "ukmo": "ukmo_seamless"
+        }.get(nwp_source)
+        if not url_nwp_source:
+            raise Exception(f'Source ({nwp_source}) must be either "icon", "gfs", or "ukmo"')
+        url = f"https://api.open-meteo.com/v1/{url_nwp_source if nwp_source != 'ukmo' else 'forecast'}"
 
-    # Pull data from the nwp_source provided 
-    url = (
-        f"https://api.open-meteo.com/v1/{url_nwp_source}?"
-        f"latitude={site.latitude}&longitude={site.longitude}"
-        f"&hourly={','.join(variables)}"
-        f"&start_date={start}&end_date={end}"
-    )
-    r = requests.get(url)
-    d = json.loads(r.text)
+    params = {
+        "latitude": site.latitude,
+        "longitude": site.longitude,
+        "start_date": f"{start}",
+        "end_date": f"{end}",
+        "hourly": variables
+    }
 
-    # If the nwp_source is ICON, get visibility data from GFS as its not available for icon on Open Meteo
-    if nwp_source == "icon":
-        url = (
-            f"https://api.open-meteo.com/v1/gfs?"
-            f"latitude={site.latitude}&longitude={site.longitude}"
-            f"&hourly=visibility"
-            f"&start_date={start}&end_date={end}"
-        )
-        r_gfs = requests.get(url)
-        d_gfs = json.loads(r_gfs.text)
+    # Add the "models" parameter if using "ukmo"
+    if nwp_source == "ukmo":
+        params["models"] = "ukmo_seamless"
 
-        # extract visibility data from gfs reponse
-        gfs_visibility_data = d_gfs["hourly"]["visibility"]
+    # Make API call to URL
+    response = openmeteo.weather_api(url, params=params)
+    hourly = response[0].Hourly()
 
-        # add visibility to the icon reponse to make a complete json file 
-        d["hourly"]["visibility"] = gfs_visibility_data
+    hourly_data = {"time": pd.date_range(
+    	start = pd.to_datetime(hourly.Time(), unit = "s", utc = False),
+    	end = pd.to_datetime(hourly.TimeEnd(), unit = "s", utc = False),
+    	freq = pd.Timedelta(seconds = hourly.Interval()),
+    	inclusive = "left"
+    )}
+
+
+    # variables index as in the variables array of the request
+    for idx, var in enumerate(["t", "prate", "lcc", "mcc", "hcc", "si10", "dswrf", "dlwrf"]):
+        hourly_data[var] = hourly.Variables(idx).ValuesAsNumpy()
+
+    # handle visibility
+    if (now - ts).days <= 90:
+        # load data from open-meteo gfs model
+        params = {
+        	"latitude": site.latitude,
+        	"longitude": site.longitude,
+        	"start_date": f"{start}",
+        	"end_date": f"{end}",
+        	"hourly": "visibility"
+        }
+        data_vis_gfs = openmeteo.weather_api("https://api.open-meteo.com/v1/gfs", params=params)[0].Hourly().Variables(0).ValuesAsNumpy()
+        hourly_data["vis"] = data_vis_gfs
+    else:
+        # set to maximum visibility possible
+        hourly_data["vis"] = 24000.0
+
+    df = pd.DataFrame(data=hourly_data).set_index("time").astype('float64')
+
 
     # convert data into xarray
-    df = pd.DataFrame(d["hourly"])
-    df["time"] = pd.to_datetime(df["time"])
-    df = df.rename(
-        columns={
-            "visibility": "vis",
-            "windspeed_10m": "si10",
-            "temperature_2m": "t",
-            "precipitation": "prate",
-            "shortwave_radiation": "dswrf",
-            "direct_radiation": "dlwrf",
-            "cloudcover_low": "lcc",
-            "cloudcover_mid": "mcc",
-            "cloudcover_high": "hcc",
-        }
-    )
-    df = df.set_index("time")
     data_xr = format_nwp_data(df, nwp_source, site)
 
     return data_xr
-
 
 def format_nwp_data(df: pd.DataFrame, nwp_source:str, site: PVSite):
     data_xr = xr.DataArray(
@@ -119,46 +133,53 @@ def format_nwp_data(df: pd.DataFrame, nwp_source:str, site: PVSite):
     )
     return data_xr
 
-def make_pv_data(site: PVSite, ts: pd.Timestamp) -> xr.Dataset:
+
+def process_pv_data(live_generation_kw: Optional[pd.DataFrame], ts: pd.Timestamp, site: 'PVSite') -> xr.Dataset:
     """
-    Make PV data by combining Enphase live data and fake PV data
+    Process PV data and create an xarray Dataset.
 
-    Later we could add PV history here
-
-    :param site: the PV site
-    :param ts: the timestamp of the site
-    :return: The combined PV dataset in xarray form
+    :param live_generation_kw: DataFrame containing live generation data, or None
+    :param ts: Current timestamp
+    :param site: PV site information
+    :return: xarray Dataset containing processed PV data
     """
-
-    # Check if the site has an inverter and use_enphase_data flag accordingly
-    use_enphase_data = site.is_inverter
-
-    if use_enphase_data:
-        # Fetch live Enphase data and store it in live_generation_wh
-        live_generation_wh = get_enphase_data(ENPHASE_USER_ID, ENPHASE_API_KEY)
+    if live_generation_kw is not None and not live_generation_kw.empty:
+        # Get the most recent data
+        recent_pv_data = live_generation_kw[live_generation_kw['timestamp'] <= ts]
+        power_kw = np.array([recent_pv_data["power_kw"].values], dtype=np.float64)
+        timestamp = recent_pv_data['timestamp'].values
     else:
-        live_generation_wh = np.nan  # Default value if not using live Enphase data
-
-    # Combine live Enphase data with fake PV data, this is where we could add history of a pv system
-    generation_wh = [[live_generation_wh]]
-    lon = [site.longitude]
-    lat = [site.latitude]
-    timestamp = [ts]
-    pv_id = [1]
+        # Make fake PV data; this is where we could add the history of a PV system
+        power_kw = np.array([[np.nan]])
+        timestamp = [ts]
 
     da = xr.DataArray(
-        data=generation_wh,
+        data=power_kw,
         dims=["pv_id", "timestamp"],
         coords=dict(
-            longitude=(["pv_id"], lon),
-            latitude=(["pv_id"], lat),
+            longitude=(["pv_id"], [site.longitude]),
+            latitude=(["pv_id"], [site.latitude]),
             timestamp=timestamp,
-            pv_id=pv_id,
+            pv_id=[1],
             kwp=(["pv_id"], [site.capacity_kwp]),
             tilt=(["pv_id"], [site.tilt]),
             orientation=(["pv_id"], [site.orientation]),
         ),
     )
-    da = da.to_dataset(name="generation_wh")
+    da = da.to_dataset(name="generation_kw")
+
+    return da
+
+def make_pv_data(site: PVSite, ts: pd.Timestamp) -> xr.Dataset:
+    """
+    Make PV data by combining live data from various inverters.
+    
+    :param site: the PV site
+    :param ts: the timestamp of the site
+    :return: The combined PV dataset in xarray form
+    """
+    live_generation_kw = site.get_inverter().get_data(ts)
+    # Process the PV data
+    da = process_pv_data(live_generation_kw, ts, site)
 
     return da

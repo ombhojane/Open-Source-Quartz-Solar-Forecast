@@ -1,9 +1,19 @@
 from pydantic import BaseModel, Field
+from typing import Optional
+
+from quartz_solar_forecast.inverters.enphase import EnphaseInverter, EnphaseSettings
+from quartz_solar_forecast.inverters.givenergy import GivEnergySettings, GivEnergyInverter
+from quartz_solar_forecast.inverters.mock import MockInverter
+from quartz_solar_forecast.inverters.solarman import SolarmanSettings, SolarmanInverter
+from quartz_solar_forecast.inverters.solis import SolisSettings, SolisInverter
+from quartz_solar_forecast.inverters.victron import VictronSettings, VictronInverter
 
 
 class PVSite(BaseModel):
     latitude: float = Field(..., description="the latitude of the site", ge=-90, le=90)
-    longitude: float = Field(..., description="the longitude of the site", ge=-180, le=180)
+    longitude: float = Field(
+        ..., description="the longitude of the site", ge=-180, le=180
+    )
     capacity_kwp: float = Field(..., description="the capacity [kwp] of the site", ge=0)
     tilt: float = Field(
         default=35,
@@ -17,7 +27,37 @@ class PVSite(BaseModel):
         ge=0,
         le=360,
     )
-    is_inverter: bool = Field(
-        default=False,
-        description="Flag indicating whether the site has an inverter (e.g., Enphase). If True, use_enphase_data will be considered.",
+    inverter_type: str = Field(
+        default=None,
+        description="The type of inverter used",
+        json_schema_extra=["enphase", "solis", "givenergy", "solarman", None],
     )
+
+    def round_latitude_and_longitude(self):
+        """ Round the latitude and longitude to 2 decimal places
+
+        This is to ensure that the location of the site is not stored exactly.
+        """
+        self.latitude = round(self.latitude, 2)
+        self.longitude = round(self.longitude, 2)
+
+    def get_inverter(self):
+        if self.inverter_type == 'enphase':
+            return EnphaseInverter(EnphaseSettings())
+        elif self.inverter_type == 'solis':
+            return SolisInverter(SolisSettings())
+        elif self.inverter_type == 'givenergy':
+            return GivEnergyInverter(GivEnergySettings())
+        elif self.inverter_type == 'solarman':
+            return SolarmanInverter(SolarmanSettings())
+        elif self.inverter_type == 'victron':
+            return VictronInverter.from_settings(VictronSettings())
+        else:
+            return MockInverter()
+
+class ForecastRequest(BaseModel):
+    site: PVSite
+    timestamp: Optional[str] = None
+
+class TokenRequest(BaseModel):
+    redirect_url: str
